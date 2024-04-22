@@ -18,6 +18,8 @@ import subprocess
 import os
 import asyncio
 from dotenv import load_dotenv
+from copy import deepcopy
+
 
 import pandas as pd
 from pydantic import BaseModel
@@ -55,17 +57,16 @@ async def run():
 
 
     # Retrieval and evaluation parameters
-    NUMBER_OF_RESULTS = 2
+    NUMBER_OF_RESULTS = 3
 
     query = "What is the biggest city in the world?"
     expected_output = "The biggest city in the world is Tokyo, Japan."
-    llm_output = "Thailand"
+    llm_output = ""
 
 
     # Search queries
     search_client = SearchClient(AISEARCH_ENDPOINT, AISEARCH_INDEX, AzureKeyCredential(AISEARCH_KEY))
     vector_query = VectorizableTextQuery(text=query, k_nearest_neighbors=10, fields="embedding", exhaustive=True)
-
 
     ## pure text search
     text_results = search_client.search(  
@@ -101,17 +102,17 @@ async def run():
         query_answer=QueryAnswerType.EXTRACTIVE,
         top=NUMBER_OF_RESULTS
     )
-
+    
     # Evaluation, create the test cases and metrics per search_type
-
-    results_list = [text_results, vector_results, hybrid_results, semantic_results]
+    results_list_1 = [deepcopy(text_results), deepcopy(vector_results), deepcopy(hybrid_results), deepcopy(semantic_results)]
+    results_list_2 = [deepcopy(text_results), deepcopy(vector_results), deepcopy(hybrid_results), deepcopy(semantic_results)]
 
     test_cases = []
     precision_metrics = []
     recall_metrics = []
     relevancy_metrics = []
 
-    for results in results_list: 
+    for results in results_list_1: 
         retrieval_context = []
         for result in results:
             retrieval_context.append(re.sub(r"\s+", " ", result["content"]))
@@ -127,35 +128,34 @@ async def run():
         recall_metrics.append(ContextualRecallMetric(include_reason=True))
         relevancy_metrics.append(ContextualRelevancyMetric(include_reason=True))
 
-    # tasks = []
-    # for i, test_case in enumerate(test_cases):
-    #     tasks.append(precision_metrics[i].a_measure(test_case))
-    #     tasks.append(recall_metrics[i].a_measure(test_case))
-    #     tasks.append(relevancy_metrics[i].a_measure(test_case))
+    tasks = []
+    for i, test_case in enumerate(test_cases):
+        tasks.append(precision_metrics[i].a_measure(test_case))
+        tasks.append(recall_metrics[i].a_measure(test_case))
+        tasks.append(relevancy_metrics[i].a_measure(test_case))
     
-    # await asyncio.gather(*tasks)
-
-    precision_metrics[0].measure(test_cases[0])
+    await asyncio.gather(*tasks)
 
     # Bring everything together
-
-    df1_list = []
-    df2_list = []
+    df1_list: list[dict] = []
+    df2_list: list[dict] = []
     
     search_types = ["Pure Text", "Pure Vector", "Hybrid", "Semantic Hybrid"]
 
+    # Write search results to DataFrame
+    
     # Loop over each result in retrieval_results
-    for i, results in enumerate(results_list):
+    for i, results in enumerate(results_list_2):
         search_type = search_types[i]
+
         for result in results:
-            # Create a dictionary for each result and add it to the list
             df1_list.append({
                 "Search Type": search_type,
                 "Search Score": result["@search.score"],
                 "Reranker Score": result["@search.reranker_score"],
                 "Content": re.sub(r"\s+", " ", result["content"])
             })
-
+        
         # evaluation results per search type
         df2_list.append({
             "Search Type": search_type,
@@ -168,21 +168,18 @@ async def run():
         })
 
     # Create DataFrames from the lists of dictionaries
-    results_df1 = pd.DataFrame(df1_list)
+    results_df1 = pd.DataFrame(df1_list, index=None)
     transposed_df1 = results_df1.T
 
-    results_df2 = pd.DataFrame(df2_list)
+    results_df2 = pd.DataFrame(df2_list, index=None)
     transposed_df2 = results_df2.T
    
+    # Write both dataframes to Excel file
     with pd.ExcelWriter("eval_results.xlsx", engine='openpyxl') as writer:
-    # Write each dataframe to a different worksheet.
         transposed_df1.to_excel(writer, sheet_name='Search & Eval')
-        # Calculate the number of rows of the first DataFrame (including the header) and add one for the blank row
-        startrow = len(transposed_df1) + 2  # 1 for header, and 1 for the blank row
-        # Write the second DataFrame to the same sheet starting below the first DataFrame with a blank row in between
+        startrow = len(transposed_df1) + 2  
         transposed_df2.to_excel(writer, sheet_name='Search & Eval', startrow=startrow)
     
 
-# Starting the asyncio event loop and running the evaluation
 if __name__ == "__main__":
     asyncio.run(run())
