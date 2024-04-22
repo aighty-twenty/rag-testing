@@ -18,12 +18,14 @@ import subprocess
 import os
 import asyncio
 from dotenv import load_dotenv
+from copy import deepcopy
+
 
 import pandas as pd
 from pydantic import BaseModel
 
 class SearchResult(BaseModel):
-    queryType: str | None
+    search_type: str | None
     search_score: float | None
     reranker_score: float | None
     cleaned_content: str | None
@@ -55,17 +57,16 @@ async def run():
 
 
     # Retrieval and evaluation parameters
-    NUMBER_OF_RESULTS = 2
+    NUMBER_OF_RESULTS = 3
 
     query = "What is the biggest city in the world?"
     expected_output = "The biggest city in the world is Tokyo, Japan."
-    llm_output = "Thailand"
+    llm_output = ""
 
 
     # Search queries
     search_client = SearchClient(AISEARCH_ENDPOINT, AISEARCH_INDEX, AzureKeyCredential(AISEARCH_KEY))
     vector_query = VectorizableTextQuery(text=query, k_nearest_neighbors=10, fields="embedding", exhaustive=True)
-
 
     ## pure text search
     text_results = search_client.search(  
@@ -101,59 +102,29 @@ async def run():
         query_answer=QueryAnswerType.EXTRACTIVE,
         top=NUMBER_OF_RESULTS
     )
-
-    retrieval_results: list[SearchResult] = []
-
-    for result in text_results:
-        retrieval_results.append(SearchResult(
-            queryType="Text", 
-            search_score=result['@search.score'], 
-            reranker_score=result['@search.reranker_score'], 
-            cleaned_content=re.sub(r'\s+', ' ', result['content'])
-        ))
-
-    for result in vector_results:
-        retrieval_results.append(SearchResult(
-            queryType="Vector", 
-            search_score=result['@search.score'], 
-            reranker_score=result['@search.reranker_score'], 
-            cleaned_content=re.sub(r'\s+', ' ', result['content'])
-        ))
-
-    for result in hybrid_results:
-        retrieval_results.append(SearchResult(
-            queryType="Hybrid", 
-            search_score=result['@search.score'], 
-            reranker_score=result['@search.reranker_score'], 
-            cleaned_content=re.sub(r'\s+', ' ', result['content'])
-        ))
-
-    for result in semantic_results:
-        retrieval_results.append(SearchResult(
-            queryType="Hybrid Semantic", 
-            search_score=result['@search.score'], 
-            reranker_score=result['@search.reranker_score'], 
-            cleaned_content=re.sub(r'\s+', ' ', result['content'])
-        ))
-
-
-    # Evaluation
+    
+    # Evaluation, create the test cases and metrics per search_type
+    results_list_1 = [deepcopy(text_results), deepcopy(vector_results), deepcopy(hybrid_results), deepcopy(semantic_results)]
+    results_list_2 = [deepcopy(text_results), deepcopy(vector_results), deepcopy(hybrid_results), deepcopy(semantic_results)]
 
     test_cases = []
     precision_metrics = []
     recall_metrics = []
     relevancy_metrics = []
-    
-    for result in retrieval_results:
-        retrieval_context = result.cleaned_content
+
+    for results in results_list_1: 
+        retrieval_context = []
+        for result in results:
+            retrieval_context.append(re.sub(r"\s+", " ", result["content"]))
+                
         test_case = LLMTestCase(
             input=query,
             actual_output=llm_output,
             expected_output=expected_output,
-            retrieval_context=[retrieval_context]
+            retrieval_context=retrieval_context
         )
         test_cases.append(test_case)
-        precision_metrics.append(ContextualPrecisionMetric(include_reason=True, strict_mode=False))
+        precision_metrics.append(ContextualPrecisionMetric(include_reason=True))
         recall_metrics.append(ContextualRecallMetric(include_reason=True))
         relevancy_metrics.append(ContextualRelevancyMetric(include_reason=True))
 
@@ -165,53 +136,50 @@ async def run():
     
     await asyncio.gather(*tasks)
 
-    print(precision_metrics)
-    print(recall_metrics)
-    print(relevancy_metrics)
-
-    for i, _ in enumerate(retrieval_results):
-        retrieval_results[i].evaluation = {
-            "precision": precision_metrics[i].score,
-            "precision_reason": precision_metrics[i].reason,
-            "recall": recall_metrics[i].score,
-            "recall_reason": recall_metrics[i].reason,
-            "relevancy": relevancy_metrics[i].score,
-            "relevancy_reason": relevancy_metrics[i].reason
-        }
-
     # Bring everything together
+    df1_list: list[dict] = []
+    df2_list: list[dict] = []
+    
+    search_types = ["Pure Text", "Pure Vector", "Hybrid", "Semantic Hybrid"]
 
-    data_list = []
-
+    # Write search results to DataFrame
+    
     # Loop over each result in retrieval_results
-    for result in retrieval_results:
-        # Create a dictionary for each result and add it to the list
-        data_list.append({
-            "Query Type": result.queryType,
-            "Search Score": result.search_score,
-            "Reranker Score": result.reranker_score,
-            "Contextual Precision": result.evaluation['precision'],
-            "Contextual Precision Reason": result.evaluation['precision_reason'],
-            "Contextual Recall": result.evaluation['recall'],
-            "Contextual Recall Reason": result.evaluation['recall_reason'],
-            "Contextual Relevancy": result.evaluation['relevancy'],
-            "Contextual Relevancy Reason": result.evaluation['relevancy_reason'],
-            "Content": result.cleaned_content
+    for i, results in enumerate(results_list_2):
+        search_type = search_types[i]
+
+        for result in results:
+            df1_list.append({
+                "Search Type": search_type,
+                "Search Score": result["@search.score"],
+                "Reranker Score": result["@search.reranker_score"],
+                "Content": re.sub(r"\s+", " ", result["content"])
+            })
+        
+        # evaluation results per search type
+        df2_list.append({
+            "Search Type": search_type,
+            "Contextual Precision": precision_metrics[i].score,
+            "Contextual Precision Reason": precision_metrics[i].reason,
+            "Contextual Recall": recall_metrics[i].score,
+            "Contextual Recall Reason": recall_metrics[i].reason,
+            "Contextual Relevancy": relevancy_metrics[i].score,
+            "Contextual Relevancy Reason": relevancy_metrics[i].reason,
         })
 
-    # Create DataFrame from the list of dictionaries
-    results_df = pd.DataFrame(data_list)
+    # Create DataFrames from the lists of dictionaries
+    results_df1 = pd.DataFrame(df1_list, index=None)
+    transposed_df1 = results_df1.T
 
-    # Optionally transpose the DataFrame if needed
-    transposed_df = results_df.T
+    results_df2 = pd.DataFrame(df2_list, index=None)
+    transposed_df2 = results_df2.T
+   
+    # Write both dataframes to Excel file
+    with pd.ExcelWriter("eval_results.xlsx", engine='openpyxl') as writer:
+        transposed_df1.to_excel(writer, sheet_name='Search & Eval')
+        startrow = len(transposed_df1) + 2  
+        transposed_df2.to_excel(writer, sheet_name='Search & Eval', startrow=startrow)
+    
 
-    # Print the transposed DataFrame
-    print(transposed_df)
-
-    # Save the transposed DataFrame to an Excel file using 'openpyxl' as the engine
-    transposed_df.to_excel("search_results.xlsx", index=True, engine='openpyxl')
-
-
-# Starting the asyncio event loop and running the evaluation
 if __name__ == "__main__":
     asyncio.run(run())
