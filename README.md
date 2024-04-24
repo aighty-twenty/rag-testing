@@ -15,9 +15,15 @@ In the data folder a sample PDF document with some longer tables is provided to 
 
 ## query.py & eval.py
 
-You need to set the env variables in a `.env` file in order to run the Python scripts. See `.env.example` for the necessary variables.
-
 The `query.py` script is used to query the Azure AI Search service with integrated vectorization directly. It runs four different kinds of queries: full-text, vector, hybrid and hybrid semantic.
 
 The `eval.py` uses DeepEval in order to assign scores to the retrieval results. 
 
+## Steps to run 
+- Clone the repository `git clone ...`
+- Change your working directory into the repository folder `cd rag-testing`
+- Set the env variables in a `.env` file. See `.env.example` for the necessary variables
+- Create a Python virtual environment: `python3 -m venv .venv`
+- Activate the virtual environment: `source .venv/bin/activate`
+- Install dependencies: `pip install -r requirements.txt`
+- Run one of the Python scripts: `python eval.py` or `python query.py`
