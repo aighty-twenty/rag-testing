@@ -58,6 +58,7 @@ async def run():
 
     # Retrieval and evaluation parameters
     NUMBER_OF_RESULTS = 3
+    EXCEL_FILE = "search_eval.xlsx"
 
     query = "What is the biggest city in the world?"
     expected_output = "The biggest city in the world is Tokyo, Japan."
@@ -175,7 +176,7 @@ async def run():
     transposed_df2 = results_df2.T
    
     # Write both dataframes to Excel file
-    with pd.ExcelWriter("eval_results.xlsx", engine='openpyxl') as writer:
+    with pd.ExcelWriter(EXCEL_FILE, engine='openpyxl') as writer:
         transposed_df1.to_excel(writer, sheet_name='Search & Eval')
         startrow = len(transposed_df1) + 2  
         transposed_df2.to_excel(writer, sheet_name='Search & Eval', startrow=startrow)
