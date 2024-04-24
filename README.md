@@ -21,9 +21,9 @@ The `query.py` script is used to query the Azure AI Search service with integrat
 The `eval.py` uses DeepEval in order to assign scores to the retrieval results. 
 
 Check the documentation for the definitions of the used evaluation metrics:
-- [Precision](https://docs.confident-ai.com/docs/metrics-contextual-precision)
-- [Recall](https://docs.confident-ai.com/docs/metrics-contextual-recall)
-- [Relevancy](https://docs.confident-ai.com/docs/metrics-contextual-relevancy)
+- [Precision](https://docs.confident-ai.com/docs/metrics-contextual-precision): Measures the overall relevance of retrieval results and their respective order with respect to the **input**
+- [Recall](https://docs.confident-ai.com/docs/metrics-contextual-recall): Measures the number of relevant/attributable statements in the retrieval results with respect to an **ideal/expected output**
+- [Relevancy](https://docs.confident-ai.com/docs/metrics-contextual-relevancy): Measures the number of relevant statements in the retrieval results with respect to the **input**
 
 ## Steps to run 
 - Clone the repository `git clone https://github.com/aighty-twenty/rag-testing`
