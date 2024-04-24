@@ -19,6 +19,11 @@ The `query.py` script is used to query the Azure AI Search service with integrat
 
 The `eval.py` uses DeepEval in order to assign scores to the retrieval results. 
 
+Check the documentation for the definitions of the used evaluation metrics:
+- [Precision](https://docs.confident-ai.com/docs/metrics-contextual-precision)
+- [Recall](https://docs.confident-ai.com/docs/metrics-contextual-recall)
+- [Relevancy](https://docs.confident-ai.com/docs/metrics-contextual-relevancy)
+
 ## Steps to run 
 - Clone the repository `git clone ...`
 - Change your working directory into the repository folder `cd rag-testing`
