@@ -4,8 +4,9 @@
 
 This repository has two folders for setting up two separate RAG applications on Microsoft Azure. Firstly, based on data ingestion via the [layout model](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept-layout?view=doc-intel-4.0.0) of Azure AI Document Intelligence (formerly Form Recognizer) and secondly via the [integrated vectorization feature of Azure AI Search](https://learn.microsoft.com/en-us/azure/search/vector-search-integrated-vectorization). Both folders are a clone of this [Microsoft repository](https://github.com/Azure-Samples/azure-search-openai-demo/tree/main)
 
+The files to be ingested need to be placed in the `data` folder.
 
-In this repository, the two folders are identical at first. However, for using the two different data ingestion methods, in the integrated-vectorization an env variable needs to be set via `azd env set USE_FEATURE_INT_VECTORIZATION true` and then the deployment should be done via `azd up` in both folders.
+In this repository, the two folders are identical at first. However, for using the two different data ingestion methods, in the integrated-vectorization an env variable needs to be set via `azd env set USE_FEATURE_INT_VECTORIZATION true` and then the deployment should be done via `azd up`. For the document intelligence one `azd up` can be run directly.
 
 For cost-efficiency, some resources can in principal be shared between the two applications and also be reused from previous deployments but for some quick testing having separate resources is easier to set up. Refer to these [docs](https://github.com/Azure-Samples/azure-search-openai-demo/blob/main/docs/deploy_existing.md) for more details on sharing resources.
 
@@ -25,7 +26,7 @@ Check the documentation for the definitions of the used evaluation metrics:
 - [Relevancy](https://docs.confident-ai.com/docs/metrics-contextual-relevancy)
 
 ## Steps to run 
-- Clone the repository `git clone ...`
+- Clone the repository `git clone https://github.com/aighty-twenty/rag-testing`
 - Change your working directory into the repository folder `cd rag-testing`
 - Set the env variables in a `.env` file. See `.env.example` for the necessary variables
 - Create a Python virtual environment: `python3 -m venv .venv`
